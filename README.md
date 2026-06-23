@@ -8,9 +8,9 @@
 
 > A browser-based, real-time digital twin for a collaborative dual-arm robotic assembly cell.
 
-**Live demo:** <https://robot-realtime-mointor.onrender.com>
+**Live demo:** <https://robot-realtime-monitor.onrender.com>
 
-> Render free-tier services may take ~30 seconds to wake up on the first visit.
+> ⚠️ **Cold start notice:** This app runs on Render's free tier, which spins down after inactivity. **The first visit may take 50 seconds or more to load** — please be patient and wait for the page to fully appear before interacting.
 
 ## Project Overview
 
@@ -20,11 +20,7 @@ The application does **not** control physical hardware. It is a portfolio projec
 
 ## Screenshots
 
-Add a full-width screenshot or short GIF here after deploying:
-
-```md
 ![Dual-arm operator station](docs/operator-station.png)
-```
 
 ## Features
 

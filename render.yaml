@@ -9,4 +9,4 @@ services:
     autoDeployTrigger: checksPass
     envVars:
       - key: NODE_VERSION
-        value: 22.22.3
+        value: 24.15.0

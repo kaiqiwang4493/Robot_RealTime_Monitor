@@ -1,0 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+html, body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100%;
+  background: #edf4f2;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+body { min-height: 100vh; }
+button, canvas { -webkit-tap-highlight-color: transparent; }

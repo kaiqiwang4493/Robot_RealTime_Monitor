@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: dual-arm-digital-twin
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.3

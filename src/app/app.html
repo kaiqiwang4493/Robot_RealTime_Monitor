@@ -1,0 +1,164 @@
+<div class="shell" [class.faulted]="frame()?.cellState === 'faulted'">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"><span></span><span></span></div>
+      <div>
+        <p class="eyebrow">WORKCELL / DT-02</p>
+        <h1>Dual-Arm Assembly Cell</h1>
+      </div>
+    </div>
+    <div class="top-metrics">
+      <div class="metric connection" [class.offline]="telemetry.connection() !== 'connected'">
+        <span class="pulse"></span>
+        <div><small>TELEMETRY</small><strong>{{ telemetry.connection().toUpperCase() }}</strong></div>
+      </div>
+      <div class="metric"><small>CELL STATE</small><strong>{{ stateLabel().toUpperCase() }}</strong></div>
+      <div class="metric"><small>COMPLETED</small><strong>{{ frame()?.metrics?.completedCount ?? 0 }}</strong></div>
+      <div class="metric"><small>CYCLE TIME</small><strong>{{ (frame()?.metrics?.currentCycleTime ?? 0) / 1000 | number:'1.1-1' }}s</strong></div>
+      <div class="metric"><small>RENDER</small><strong>{{ fps() }} FPS</strong></div>
+      <div class="clock">{{ now() | date:'HH:mm:ss' }}<small>LOCAL</small></div>
+    </div>
+  </header>
+
+  @if (frame()?.activeAlert; as alert) {
+    <div class="alert-banner" [class]="severityClass(alert.severity)">
+      <span class="alert-icon">{{ alert.severity === 'error' ? '!' : '△' }}</span>
+      <strong>{{ alert.severity.toUpperCase() }} · {{ alert.code }}</strong>
+      <p>{{ alert.message }}</p>
+      @if (alert.severity === 'error') {
+        <button (click)="command('reset')">RESET CELL</button>
+      }
+    </div>
+  }
+
+  <main class="workspace">
+    <aside class="panel control-panel">
+      <section class="mission">
+        <p class="section-number">01 / MISSION</p>
+        <h2>Precision component assembly</h2>
+        <p>Arm A retrieves a top component from the supply area and installs it onto a base workpiece. Arm B transfers the verified assembly to the completed zone.</p>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <p class="section-number">02 / SEQUENCE</p>
+          <span>{{ stepLabel() }}</span>
+        </div>
+        <div class="sequence">
+          @for (step of processSteps; track step.key; let index = $index) {
+            <div class="sequence-step"
+              [class.active]="frame()?.processStep === step.key"
+              [class.complete]="isStepComplete(index)">
+              <span class="step-index">{{ (index + 1).toString().padStart(2, '0') }}</span>
+              <div>
+                <strong>{{ step.short }}</strong>
+                <small>{{ step.label }}</small>
+              </div>
+              <i></i>
+            </div>
+          }
+        </div>
+      </section>
+
+      <section class="controls">
+        <p class="section-number">03 / CELL CONTROL</p>
+        <div class="primary-controls">
+          <button class="start" (click)="command('start')" [disabled]="frame()?.cellState === 'running'">
+            <span>▶</span> START
+          </button>
+          <button (click)="command('pause')" [disabled]="frame()?.cellState !== 'running'">Ⅱ PAUSE</button>
+          <button (click)="command('reset')">↺ RESET</button>
+        </div>
+        <div class="fault-controls">
+          <button class="warning" (click)="injectAlert('inject-warning')">△ INJECT WARNING</button>
+          <button class="error" (click)="injectAlert('inject-error')">! INJECT ERROR</button>
+        </div>
+      </section>
+    </aside>
+
+    <section class="viewport">
+      <div class="viewport-label">
+        <div><span class="live-dot"></span> LIVE DIGITAL TWIN</div>
+        <small>10 HZ TELEMETRY / INTERPOLATED RENDER</small>
+      </div>
+      <app-workcell-scene
+        [telemetry]="frame()"
+        [resetRequest]="resetCameraRequest()"
+        (fps)="setFps($event)"
+      />
+      <div class="scene-legend">
+        <span><i class="arm-a"></i> ARM A / ASSEMBLY</span>
+        <span><i class="arm-b"></i> ARM B / TRANSFER</span>
+        <span><i class="safe"></i> SHARED SAFETY ZONE</span>
+      </div>
+      <button class="camera-reset" (click)="resetCamera()">⌖ RESET VIEW</button>
+      @if (telemetry.stale()) {
+        <div class="stale-overlay"><strong>TELEMETRY STALE</strong><span>Reconnecting to simulator…</span></div>
+      }
+    </section>
+
+    <aside class="panel data-panel">
+      <section>
+        <div class="section-head">
+          <p class="section-number">04 / ROBOTS</p>
+          <span>JOINT TELEMETRY</span>
+        </div>
+        @for (id of ['arm-a', 'arm-b']; track id; let robotIndex = $index) {
+          @if (robot(robotIndex === 0 ? 'arm-a' : 'arm-b'); as item) {
+            <article class="robot-card" [class.arm-b]="robotIndex === 1">
+              <div class="robot-title">
+                <div><span class="robot-badge">{{ robotIndex === 0 ? 'A' : 'B' }}</span>
+                  <div><strong>ARM {{ robotIndex === 0 ? 'A' : 'B' }}</strong><small>{{ robotIndex === 0 ? 'ASSEMBLY' : 'TRANSFER' }}</small></div>
+                </div>
+                <span class="status">{{ item.status.toUpperCase() }}</span>
+              </div>
+              <div class="joints">
+                @for (angle of item.jointAngles; track $index) {
+                  <div><small>J{{ $index + 1 }}</small><strong>{{ formatAngle(angle) }}</strong><span><i [style.width.%]="50 + angle / 4"></i></span></div>
+                }
+              </div>
+              <div class="gripper"><span>GRIPPER</span><strong>{{ item.gripperClosed ? 'CLOSED' : 'OPEN' }}</strong></div>
+            </article>
+          }
+        }
+      </section>
+
+      <section class="workpiece">
+        <p class="section-number">05 / ACTIVE ASSET</p>
+        <div class="asset-row">
+          <div class="asset-shape"><span></span></div>
+          <div><small>WORKPIECE ID</small><strong>{{ currentWorkpiece()?.id ?? 'AWAITING' }}</strong></div>
+          <div><small>STATE</small><strong>{{ (currentWorkpiece()?.state ?? 'not loaded').toUpperCase() }}</strong></div>
+        </div>
+        <div class="conveyor-row">
+          <span>CONVEYOR</span>
+          <strong>{{ frame()?.conveyor?.running ? 'RUNNING' : 'STOPPED' }}</strong>
+          <span>{{ frame()?.conveyor?.speed ?? 0 | number:'1.1-1' }} m/s</span>
+        </div>
+      </section>
+
+      <section class="event-section">
+        <div class="section-head">
+          <p class="section-number">06 / EVENT STREAM</p>
+          <span>{{ telemetry.events().length }} EVENTS</span>
+        </div>
+        <div class="event-list">
+          @for (event of telemetry.events(); track event.id) {
+            <article class="event" [class]="severityClass(event.severity)">
+              <time>{{ event.timestamp | date:'HH:mm:ss.SSS' }}</time>
+              <div><strong>{{ event.code }}</strong><p>{{ event.message }}</p></div>
+            </article>
+          } @empty {
+            <div class="empty-events"><span>◇</span> Waiting for cell events</div>
+          }
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <footer>
+    <span>SIMULATION MODE</span>
+    <p>Authoritative Node.js state machine · WebSocket transport · Three.js/WebGL visualization</p>
+    <span>NO PHYSICAL HARDWARE CONNECTED</span>
+  </footer>
+</div>

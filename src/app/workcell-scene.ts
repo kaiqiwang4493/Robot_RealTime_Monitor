@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { TelemetryFrame } from './models';
 
 interface RobotRig {
@@ -206,13 +207,13 @@ export class WorkcellScene implements AfterViewInit, OnDestroy {
   private addCompletedZone(): void {
     if (!this.scene) return;
     const zone = new THREE.Mesh(
-      new THREE.BoxGeometry(2.8, 0.12, 2.8),
+      new THREE.BoxGeometry(2.2, 0.12, 2.2),
       new THREE.MeshStandardMaterial({ color: '#d5efe8', emissive: '#62d2ba', emissiveIntensity: 0.18 }),
     );
-    zone.position.set(5.15, 0.08, 1.1);
+    zone.position.set(5.5, 0.08, 0.3);
     this.scene.add(zone);
     const edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.BoxGeometry(2.8, 0.15, 2.8)),
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(2.2, 0.15, 2.2)),
       new THREE.LineBasicMaterial({ color: '#32e6bd' }),
     );
     edges.position.copy(zone.position);
@@ -267,8 +268,12 @@ export class WorkcellScene implements AfterViewInit, OnDestroy {
       meshes.push(mesh);
       parent.add(mesh);
     };
+    // helper: rounded box (r = corner radius, s = bevel segments)
+    const rbox = (w: number, h: number, d: number, r = 0.06, s = 4) =>
+      new RoundedBoxGeometry(w, h, d, s, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001));
+
     const foundation = new THREE.Mesh(
-      new THREE.BoxGeometry(2.25, 0.16, 2.25),
+      rbox(2.25, 0.16, 2.25, 0.04),
       new THREE.MeshStandardMaterial({ color: '#b8c8c4', metalness: 0.15, roughness: 0.72 }),
     );
     foundation.position.y = -0.2;
@@ -285,7 +290,7 @@ export class WorkcellScene implements AfterViewInit, OnDestroy {
     const turret = new THREE.Group();
     turret.position.y = 1.08;
     root.add(turret);
-    const shoulderHousing = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.86, 0.9), body);
+    const shoulderHousing = new THREE.Mesh(rbox(1.08, 0.86, 0.9, 0.09), body);
     shoulderHousing.position.y = 0.18;
     addMesh(shoulderHousing, turret);
     const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.54, 1.08, 24), accent);
@@ -293,10 +298,10 @@ export class WorkcellScene implements AfterViewInit, OnDestroy {
     addMesh(shoulder, turret);
     const upperPivot = new THREE.Group();
     turret.add(upperPivot);
-    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.68, upperLength + 0.07, 0.72), body);
+    const upper = new THREE.Mesh(rbox(0.68, upperLength + 0.07, 0.72, 0.07), body);
     upper.position.y = upperLength / 2;
     addMesh(upper, upperPivot);
-    const upperAccent = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.18, 0.76), accent);
+    const upperAccent = new THREE.Mesh(rbox(0.72, 0.18, 0.76, 0.05), accent);
     upperAccent.position.y = upperLength * 0.68;
     addMesh(upperAccent, upperPivot);
     const elbow = new THREE.Group();
@@ -307,7 +312,7 @@ export class WorkcellScene implements AfterViewInit, OnDestroy {
     addMesh(elbowMesh, elbow);
     const forePivot = new THREE.Group();
     elbow.add(forePivot);
-    const fore = new THREE.Mesh(new THREE.BoxGeometry(0.58, foreLength + 0.1, 0.62), body);
+    const fore = new THREE.Mesh(rbox(0.58, foreLength + 0.1, 0.62, 0.07), body);
     fore.position.y = foreLength / 2;
     addMesh(fore, forePivot);
     const wrist = new THREE.Group();
@@ -327,7 +332,7 @@ export class WorkcellScene implements AfterViewInit, OnDestroy {
     const gripperRoll = new THREE.Group();
     wrist.add(gripperRoll);
     const gripperPalm = new THREE.Mesh(
-      new THREE.BoxGeometry(closedGripHalfSpan * 2 + 0.34, 0.32, 0.52),
+      rbox(closedGripHalfSpan * 2 + 0.34, 0.32, 0.52, 0.06),
       dark,
     );
     gripperPalm.position.y = 0.94;
@@ -337,7 +342,7 @@ export class WorkcellScene implements AfterViewInit, OnDestroy {
     gripperRoll.add(toolMount);
     for (const direction of [-1, 1]) {
       const x = direction * (closedGripHalfSpan + 0.18);
-      const finger = new THREE.Mesh(new THREE.BoxGeometry(0.14, fingerLength, 0.2), accent);
+      const finger = new THREE.Mesh(rbox(0.14, fingerLength, 0.2, 0.04), accent);
       finger.position.set(x, 1 + fingerLength / 2, 0);
       finger.userData['openX'] = x;
       finger.userData['closedX'] = direction * closedGripHalfSpan;
@@ -377,11 +382,24 @@ export class WorkcellScene implements AfterViewInit, OnDestroy {
     this.measureFps();
   };
 
+  // IK-computed joint angles (degrees) for robot B to place the assembled
+  // workpiece at the completed zone center (5.5, 0.31, 0.3).
+  // J1=51.6° aims turret; J2=-21.7° shoulder tilt; J3=-116° elbow bend; J4=-42.3° wrist down.
+  private readonly DEPOSIT_JOINTS_DEG = [51.6, -21.7, -116.0, -42.3];
+  /** Per-joint angular velocities (rad/frame) used during the deposit phase. */
+  private depositVelocities = [0, 0, 0, 0];
+
   private applyTelemetry(frame: TelemetryFrame): void {
     const armAState = frame.robots.find((robot) => robot.id === 'arm-a');
     const armBState = frame.robots.find((robot) => robot.id === 'arm-b');
+    // During the deposit step, override robot B's joint targets so it physically
+    // carries the workpiece to the completed zone instead of the backend drop point.
+    const isDepositing = frame.processStep === 'placing-completed';
+    if (!isDepositing) this.depositVelocities = [0, 0, 0, 0]; // reset on mode exit
+    const armBAngles  = isDepositing ? this.DEPOSIT_JOINTS_DEG : (armBState?.jointAngles  ?? []);
+    const armBGripper = isDepositing ? true                    : (armBState?.gripperClosed ?? false);
     this.updateRobot(this.armA, armAState?.jointAngles ?? [], armAState?.gripperClosed ?? false, frame);
-    this.updateRobot(this.armB, armBState?.jointAngles ?? [], armBState?.gripperClosed ?? false, frame);
+    this.updateRobot(this.armB, armBAngles, armBGripper, frame, isDepositing);
     this.scene?.updateMatrixWorld(true);
     // Spin Robot B's gripper so its fingers stay aligned with the conveyor axis (world X).
     if (this.armB) this.alignGripperRoll(this.armB, new THREE.Vector3(1, 0, 0));
@@ -399,7 +417,11 @@ export class WorkcellScene implements AfterViewInit, OnDestroy {
       if (base.state === 'held-by-arm-b') {
         this.attachToTool(this.baseMesh, this.armB.toolMount, true);
       } else if (base.state === 'completed') {
-        this.placeCompletedAsset(this.baseMesh, new THREE.Vector3(...base.position));
+        // attachToScene preserves world position so the object doesn't jump
+        // when detaching from the tool mount, then gently settle to zone center.
+        this.attachToScene(this.baseMesh);
+        this.baseMesh.position.lerp(new THREE.Vector3(5.5, 0.31, 0.3), 0.06);
+        this.baseMesh.quaternion.slerp(new THREE.Quaternion(), 0.06);
       } else {
         this.attachToScene(this.baseMesh);
         this.baseMesh.position.lerp(new THREE.Vector3(...base.position), 0.18);
@@ -430,12 +452,37 @@ export class WorkcellScene implements AfterViewInit, OnDestroy {
     angles: number[],
     gripperClosed: boolean,
     frame: TelemetryFrame,
+    depositMode = false,
   ): void {
     if (!rig) return;
     const target = angles.map(THREE.MathUtils.degToRad);
+    // Deposit phase: velocity-damped trapezoidal profile.
+    //   MAX_SPEED  – cruise speed (0.7°/frame ≈ 42°/s at 60 fps)
+    //   ACCEL_RATE – fraction by which velocity lerps toward desired each frame (ramp-in)
+    //   DECEL_DIST – within this angular distance we start braking (smooth stop)
+    const MAX_SPEED  = THREE.MathUtils.degToRad(0.7);
+    const ACCEL_RATE = 0.06;   // ~16 frames to reach cruise speed → gentle ramp-up
+    const DECEL_DIST = THREE.MathUtils.degToRad(8);
     rig.joints.forEach((joint, index) => {
       const axis = index === 0 ? 'y' : 'z';
-      joint.rotation[axis] = THREE.MathUtils.lerp(joint.rotation[axis], target[index] ?? 0, 0.12);
+      const cur = joint.rotation[axis];
+      const tgt = target[index] ?? 0;
+      if (depositMode) {
+        const diff = tgt - cur;
+        const absDiff = Math.abs(diff);
+        // Desired velocity: cruise toward target, but scale down when close (braking zone)
+        const desiredSpeed = absDiff < DECEL_DIST
+          ? MAX_SPEED * (absDiff / DECEL_DIST)  // proportionally slow down
+          : MAX_SPEED;
+        const desiredVel = Math.abs(diff) < 0.0001 ? 0 : Math.sign(diff) * desiredSpeed;
+        // Smooth the velocity (ease-in at start, ease-out near target)
+        this.depositVelocities[index] = THREE.MathUtils.lerp(
+          this.depositVelocities[index], desiredVel, ACCEL_RATE,
+        );
+        joint.rotation[axis] = cur + this.depositVelocities[index];
+      } else {
+        joint.rotation[axis] = THREE.MathUtils.lerp(cur, tgt, 0.12);
+      }
     });
     rig.fingers.forEach((finger) => {
       const targetX = gripperClosed

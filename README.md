@@ -1,6 +1,6 @@
 # Dual-Arm Assembly Cell Digital Twin
 
-[![CI](https://github.com/YOUR_GITHUB_USERNAME/dual-arm-digital-twin/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB_USERNAME/dual-arm-digital-twin/actions/workflows/ci.yml)
+[![CI](https://github.com/kaiqiwang4493/Robot_RealTime_Mointor/actions/workflows/ci.yml/badge.svg)](https://github.com/kaiqiwang4493/Robot_RealTime_Mointor/actions/workflows/ci.yml)
 ![Angular](https://img.shields.io/badge/Angular-22-DD0031)
 ![Three.js](https://img.shields.io/badge/Three.js-WebGL-000000)
 ![WebSocket](https://img.shields.io/badge/Telemetry-WebSocket-32e6bd)
@@ -8,8 +8,7 @@
 
 > A browser-based, real-time digital twin for a collaborative dual-arm robotic assembly cell.
 
-**Live demo:** Replace this line with your Render URL after deployment, for example  
-`https://dual-arm-digital-twin.onrender.com`
+**Live demo:** <https://robot-realtime-mointor.onrender.com>
 
 > Render free services can take a short time to wake up on the first visit. Open the demo shortly before an interview.
 
@@ -192,7 +191,7 @@ The server tests cover state transitions, non-blocking warnings, safe-stop error
 ### Render Blueprint
 
 1. Push this repository to GitHub.
-2. Replace `YOUR_GITHUB_USERNAME` in the CI badge above.
+2. The CI badge already points to `kaiqiwang4493/Robot_RealTime_Mointor`.
 3. In Render, select **New → Blueprint**.
 4. Connect the repository and select `render.yaml`.
 5. Wait for the Angular production build and Node service deployment.
@@ -201,7 +200,7 @@ The server tests cover state transitions, non-blocking warnings, safe-stop error
 
 The included blueprint:
 
-- uses Node.js 22.22.3
+- uses Node.js 24.15.0
 - runs `npm ci && npm run build`
 - starts the Node service with `npm start`
 - exposes `/health` for deployment health checks

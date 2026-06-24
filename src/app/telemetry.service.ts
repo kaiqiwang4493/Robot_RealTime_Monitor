@@ -1,13 +1,15 @@
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { ClientCommand, CellEvent, ServerMessage, TelemetryFrame } from './models';
 
-const LATENCY_WINDOW = 20; // rolling sample count for p95 jitter
+const LATENCY_WINDOW = 20;
+const PING_INTERVAL_MS = 1000;
 
 @Injectable({ providedIn: 'root' })
 export class TelemetryService {
   private readonly destroyRef = inject(DestroyRef);
   private socket?: WebSocket;
   private reconnectTimer?: number;
+  private pingTimer?: number;
   private lastSequence = -1;
   private latencySamples: number[] = [];
 
@@ -22,6 +24,7 @@ export class TelemetryService {
     this.connect();
     this.destroyRef.onDestroy(() => {
       window.clearTimeout(this.reconnectTimer);
+      window.clearInterval(this.pingTimer);
       this.socket?.close();
     });
   }
@@ -39,10 +42,15 @@ export class TelemetryService {
     const url = isLocalAngular ? 'ws://localhost:8080/telemetry' : `${protocol}//${location.host}/telemetry`;
     this.socket = new WebSocket(url);
 
-    this.socket.addEventListener('open', () => this.connection.set('connected'));
+    this.socket.addEventListener('open', () => {
+      this.connection.set('connected');
+      window.clearInterval(this.pingTimer);
+      this.pingTimer = window.setInterval(() => this.sendPing(), PING_INTERVAL_MS);
+    });
     this.socket.addEventListener('message', (event) => this.handleMessage(event.data as string));
     this.socket.addEventListener('close', () => {
       this.connection.set('disconnected');
+      window.clearInterval(this.pingTimer);
       this.reconnectTimer = window.setTimeout(() => this.connect(), 1600);
     });
     this.socket.addEventListener('error', () => this.socket?.close());
@@ -55,20 +63,29 @@ export class TelemetryService {
         this.events.update((events) => [message.data, ...events].slice(0, 40));
         return;
       }
+      if (message.type === 'pong') {
+        this.updateLatency(Date.now() - message.sentAt);
+        return;
+      }
       if (message.data.sequence <= this.lastSequence && message.type !== 'snapshot') return;
       this.lastSequence = message.data.sequence;
       this.frame.set(message.data);
-      this.updateLatency(message.data.timestamp);
     } catch {
       // Malformed simulator messages are ignored to protect the operator view.
     }
   }
 
-  private updateLatency(frameTimestamp: number): void {
-    // Clamp to 0: server/client clock skew can produce small negative values.
-    const latency = Math.max(0, Date.now() - frameTimestamp);
-    this.latencySamples = [...this.latencySamples, latency].slice(-LATENCY_WINDOW);
-    this.latencyMs.set(latency);
+  private sendPing(): void {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'ping', sentAt: Date.now() }));
+    }
+  }
+
+  private updateLatency(rttMs: number): void {
+    // RTT/2 approximates one-way latency without requiring clock synchronisation.
+    const oneWay = Math.round(rttMs / 2);
+    this.latencySamples = [...this.latencySamples, oneWay].slice(-LATENCY_WINDOW);
+    this.latencyMs.set(oneWay);
 
     if (this.latencySamples.length >= 2) {
       const sorted = [...this.latencySamples].sort((a, b) => a - b);

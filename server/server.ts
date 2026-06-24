@@ -35,6 +35,10 @@ webSocketServer.on('connection', (socket) => {
   socket.on('message', (raw) => {
     try {
       const command = JSON.parse(raw.toString()) as ClientCommand;
+      if (command?.type === 'ping') {
+        send(socket, { type: 'pong', sentAt: command.sentAt });
+        return;
+      }
       if (!isCommand(command)) return;
       simulation.command(command);
     } catch {

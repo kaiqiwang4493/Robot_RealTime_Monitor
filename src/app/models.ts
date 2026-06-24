@@ -55,11 +55,13 @@ export interface TelemetryFrame {
 
 export type ClientCommand =
   | { type: 'start' | 'pause' | 'reset' }
-  | { type: 'inject-warning' | 'inject-error'; target: 'arm-a' | 'arm-b' | 'conveyor' };
+  | { type: 'inject-warning' | 'inject-error'; target: 'arm-a' | 'arm-b' | 'conveyor' }
+  | { type: 'ping'; sentAt: number };
 
 export type ServerMessage =
   | { type: 'snapshot' | 'telemetry'; data: TelemetryFrame }
-  | { type: 'event'; data: CellEvent };
+  | { type: 'event'; data: CellEvent }
+  | { type: 'pong'; sentAt: number };
 
 export const PROCESS_STEPS: { key: ProcessStep; label: string; short: string; durationMs: number }[] = [
   { key: 'positioning-base',  label: 'Position base workpiece',  short: 'LOAD',     durationMs: 3200 },

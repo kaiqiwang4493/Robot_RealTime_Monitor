@@ -189,11 +189,12 @@ describe('TelemetryService', () => {
   // Robustness
   // -------------------------------------------------------------------------
 
-  it('clamps latency to 0 when server clock is ahead of client clock', () => {
-    // Simulate server timestamp 100ms in the future (clock skew).
-    const futureFrame = makeFrame(1, +100);
-    send({ type: 'telemetry', data: futureFrame });
+  it('computes latency as RTT/2 from a pong message', () => {
+    const sentAt = Date.now() - 60; // simulate 60ms RTT
+    send({ type: 'pong', sentAt });
+    // one-way latency should be ~30ms (RTT/2), always >= 0
     expect(service.latencyMs()).toBeGreaterThanOrEqual(0);
+    expect(service.latencyMs()!).toBeLessThan(200);
   });
 
   it('silently ignores malformed JSON', () => {

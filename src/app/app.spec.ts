@@ -26,6 +26,8 @@ describe('App', () => {
           events: signal([]),
           connection: signal('disconnected'),
           stale: signal(true),
+          latencyMs: signal(null),
+          jitterMs: signal(null),
           send: vi.fn(),
         },
       }],

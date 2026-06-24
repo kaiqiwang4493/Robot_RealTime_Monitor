@@ -15,6 +15,11 @@
       <div class="metric"><small>CELL STATE</small><strong>{{ stateLabel().toUpperCase() }}</strong></div>
       <div class="metric"><small>COMPLETED</small><strong>{{ frame()?.metrics?.completedCount ?? 0 }}</strong></div>
       <div class="metric"><small>CYCLE TIME</small><strong>{{ (frame()?.metrics?.currentCycleTime ?? 0) / 1000 | number:'1.1-1' }}s</strong></div>
+      <div class="metric" [class.latency-warn]="(telemetry.latencyMs() ?? 0) > 150 && (telemetry.latencyMs() ?? 0) <= 300"
+                          [class.latency-crit]="(telemetry.latencyMs() ?? 0) > 300">
+        <small>LATENCY</small>
+        <strong>{{ telemetry.latencyMs() !== null ? (telemetry.latencyMs()! | number:'1.0-0') + ' ms' : '— ms' }}</strong>
+      </div>
       <div class="metric"><small>RENDER</small><strong>{{ fps() }} FPS</strong></div>
       <div class="clock">{{ now() | date:'HH:mm:ss' }}<small>LOCAL</small></div>
     </div>
@@ -53,6 +58,12 @@
               <div>
                 <strong>{{ step.short }}</strong>
                 <small>{{ step.label }}</small>
+                @if (frame()?.processStep === step.key) {
+                  <span class="step-timer">
+                    {{ (stepElapsedMs() / 1000 | number:'1.1-1') }}s / {{ (step.durationMs / 1000 | number:'1.1-1') }}s
+                  </span>
+                  <span class="step-progress-bar"><b [style.width.%]="(frame()?.stepProgress ?? 0) * 100"></b></span>
+                }
               </div>
               <i></i>
             </div>

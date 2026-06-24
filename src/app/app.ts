@@ -25,6 +25,13 @@ export class App {
     this.processSteps.findIndex((step) => step.key === this.frame()?.processStep),
   );
   readonly currentWorkpiece = computed(() => this.frame()?.baseWorkpieces[0]);
+  readonly activeStepDurationMs = computed(() => {
+    const step = this.processSteps.find((s) => s.key === this.frame()?.processStep);
+    return step?.durationMs ?? 0;
+  });
+  readonly stepElapsedMs = computed(() =>
+    Math.round((this.frame()?.stepProgress ?? 0) * this.activeStepDurationMs()),
+  );
 
   constructor() {
     const timer = window.setInterval(() => this.now.set(Date.now()), 1000);

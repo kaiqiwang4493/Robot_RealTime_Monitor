@@ -61,13 +61,13 @@ export type ServerMessage =
   | { type: 'snapshot' | 'telemetry'; data: TelemetryFrame }
   | { type: 'event'; data: CellEvent };
 
-export const PROCESS_STEPS: { key: ProcessStep; label: string; short: string }[] = [
-  { key: 'positioning-base', label: 'Position base workpiece', short: 'LOAD' },
-  { key: 'picking-component', label: 'Pick top component', short: 'PICK' },
-  { key: 'placing-component', label: 'Place component', short: 'ASSEMBLE' },
-  { key: 'verifying-assembly', label: 'Verify assembly', short: 'VERIFY' },
-  { key: 'picking-assembly', label: 'Pick assembled workpiece', short: 'TRANSFER' },
-  { key: 'placing-completed', label: 'Place in completed area', short: 'COMPLETE' },
+export const PROCESS_STEPS: { key: ProcessStep; label: string; short: string; durationMs: number }[] = [
+  { key: 'positioning-base',  label: 'Position base workpiece',  short: 'LOAD',     durationMs: 3200 },
+  { key: 'picking-component', label: 'Pick top component',       short: 'PICK',     durationMs: 3600 },
+  { key: 'placing-component', label: 'Place component',          short: 'ASSEMBLE', durationMs: 4200 },
+  { key: 'verifying-assembly',label: 'Verify assembly',          short: 'VERIFY',   durationMs: 1600 },
+  { key: 'picking-assembly',  label: 'Pick assembled workpiece', short: 'TRANSFER', durationMs: 3500 },
+  { key: 'placing-completed', label: 'Place in completed area',  short: 'COMPLETE', durationMs: 4200 },
 ];
 
 export function titleCase(value: string): string {

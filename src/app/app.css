@@ -57,6 +57,8 @@ h1 { margin: 0; text-transform: uppercase; font: 600 18px/1 "Chakra Petch", sans
   margin-top: 3px; flex-shrink: 0; animation: pulse 2s infinite;
 }
 .connection.offline .pulse { background: var(--red); box-shadow: 0 0 14px var(--red); }
+.metric.latency-warn strong { color: var(--amber); }
+.metric.latency-crit strong { color: var(--red); }
 .clock { padding: 16px 22px 0; border-left: 1px solid var(--line); color: var(--green); font: 600 17px/1 "IBM Plex Mono", monospace; min-width: 120px; }
 .clock small { margin-top: 6px; font-size: 9px; color: var(--muted); }
 
@@ -107,6 +109,9 @@ h1 { margin: 0; text-transform: uppercase; font: 600 18px/1 "Chakra Petch", sans
 }
 .sequence-step.active strong { color: var(--green); }
 .sequence-step.active i { box-shadow: 0 0 10px var(--green); animation: pulse 1.5s infinite; }
+.step-timer { display: block; font: 600 9px "IBM Plex Mono"; color: var(--green); margin-top: 4px; letter-spacing: .04em; }
+.step-progress-bar { display: block; height: 3px; background: rgba(0,140,112,0.15); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.step-progress-bar b { display: block; height: 100%; background: var(--green); border-radius: 2px; transition: width .1s linear; }
 
 /* ── CONTROLS ───────────────────────────────────────────────── */
 button { font-family: "IBM Plex Mono", monospace; letter-spacing: .05em; }

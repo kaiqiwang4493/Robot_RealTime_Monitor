@@ -44,9 +44,9 @@ class MockWebSocket {
 // Test helpers
 // ---------------------------------------------------------------------------
 
-function makeFrame(sequence: number, timestampOffset = -50): TelemetryFrame {
+function makeFrame(sequence: number, timestampOffset = -50, now = Date.now()): TelemetryFrame {
   return {
-    timestamp: Date.now() + timestampOffset,
+    timestamp: now + timestampOffset,
     sequence,
     cellState: 'idle',
     processStep: 'waiting-for-base',
@@ -188,6 +188,13 @@ describe('TelemetryService', () => {
   // -------------------------------------------------------------------------
   // Robustness
   // -------------------------------------------------------------------------
+
+  it('clamps latency to 0 when server clock is ahead of client clock', () => {
+    // Simulate server timestamp 100ms in the future (clock skew).
+    const futureFrame = makeFrame(1, +100);
+    send({ type: 'telemetry', data: futureFrame });
+    expect(service.latencyMs()).toBeGreaterThanOrEqual(0);
+  });
 
   it('silently ignores malformed JSON', () => {
     const bad = new MessageEvent('message', { data: 'not-json{{' });

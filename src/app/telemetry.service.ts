@@ -65,7 +65,8 @@ export class TelemetryService {
   }
 
   private updateLatency(frameTimestamp: number): void {
-    const latency = Date.now() - frameTimestamp;
+    // Clamp to 0: server/client clock skew can produce small negative values.
+    const latency = Math.max(0, Date.now() - frameTimestamp);
     this.latencySamples = [...this.latencySamples, latency].slice(-LATENCY_WINDOW);
     this.latencyMs.set(latency);
 

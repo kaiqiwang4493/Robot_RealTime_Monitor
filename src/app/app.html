@@ -31,23 +31,28 @@
     <button class="tab-btn" [class.active]="activeTab() === 'history'" (click)="activeTab.set('history')">HISTORY</button>
   </nav>
 
-  @if (frame()?.activeAlert; as alert) {
-    <div class="alert-banner" [class]="severityClass(alert.severity)">
-      <span class="alert-icon">{{ alert.severity === 'error' ? '!' : '△' }}</span>
-      <strong>{{ alert.severity.toUpperCase() }} · {{ alert.code }}</strong>
-      <p>{{ alert.message }}</p>
-      @if (alert.severity === 'error') {
-        <button (click)="command('reset')">RESET CELL</button>
+  <div class="content-area">
+    @if (frame()?.activeAlert; as alert) {
+      @if (alert.id !== dismissedAlertId()) {
+        <div class="alert-banner" [class.error]="alert.severity === 'error'">
+          <span class="alert-icon">{{ alert.severity === 'error' ? '!' : '△' }}</span>
+          <strong>{{ alert.severity.toUpperCase() }} · {{ alert.code }}</strong>
+          <p>{{ alert.message }}</p>
+          <button class="alert-close" (click)="dismissedAlertId.set(alert.id)" aria-label="Dismiss alert">✕</button>
+        </div>
       }
-    </div>
-  }
+    }
 
-  @if (activeTab() === 'robot-data') {
-    <app-robot-data [frame]="frame()" />
-  }
+    @if (activeTab() === 'robot-data') {
+      <app-robot-data [frame]="frame()" />
+    }
 
-  @if (activeTab() === 'operator') {
-  <main class="workspace">
+    @if (activeTab() === 'history') {
+      <app-history [events]="telemetry.events()" />
+    }
+
+    @if (activeTab() === 'operator') {
+    <main class="workspace">
     <aside class="panel control-panel">
       <section class="mission">
         <p class="section-number">01 / MISSION</p>
@@ -176,8 +181,9 @@
         </div>
       </section>
     </aside>
-  </main>
-  } <!-- /operator tab -->
+    </main>
+    } <!-- /operator tab -->
+  </div> <!-- /content-area -->
 
   <footer>
     <span>SIMULATION MODE</span>

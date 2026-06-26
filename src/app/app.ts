@@ -1,13 +1,14 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { PROCESS_STEPS, ProcessStep, Severity, titleCase } from './models';
+import { History } from './history/history';
 import { RobotData } from './robot-data/robot-data';
 import { TelemetryService } from './telemetry.service';
 import { WorkcellScene } from './workcell-scene';
 
 @Component({
   selector: 'app-root',
-  imports: [DatePipe, DecimalPipe, WorkcellScene, RobotData],
+  imports: [DatePipe, DecimalPipe, WorkcellScene, RobotData, History],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -17,6 +18,7 @@ export class App {
   readonly telemetry = inject(TelemetryService);
   readonly processSteps = PROCESS_STEPS;
   readonly activeTab = signal<'operator' | 'robot-data' | 'history'>('operator');
+  readonly dismissedAlertId = signal<string | null>(null);
   readonly fps = signal(0);
   readonly resetCameraRequest = signal(0);
   readonly now = signal(Date.now());

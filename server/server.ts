@@ -3,8 +3,16 @@ import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
-import type { ClientCommand, ServerMessage } from '../src/app/models.ts';
+import type { CellEvent, ClientCommand, ServerMessage } from '../src/app/models.ts';
 import { CellSimulation } from './simulation.ts';
+
+const EVENT_LOG: CellEvent[] = [];
+const EVENT_LOG_MAX = 1000;
+
+function appendEvent(event: CellEvent): void {
+  EVENT_LOG.push(event);
+  if (EVENT_LOG.length > EVENT_LOG_MAX) EVENT_LOG.shift();
+}
 
 const app = express();
 const server = createServer(app);
@@ -38,6 +46,17 @@ app.get('/api/robots/:id/maintenance', (request, response) => {
   });
 });
 
+app.get('/api/events', (request, response) => {
+  const { robot, type, from, to } = request.query as Record<string, string | undefined>;
+  let events = EVENT_LOG.slice();
+  if (robot) events = events.filter((e) => e.source === robot);
+  if (type) events = events.filter((e) => e.severity === type);
+  if (from) events = events.filter((e) => e.timestamp >= Number(from));
+  if (to) events = events.filter((e) => e.timestamp <= Number(to));
+  events = events.slice().reverse();
+  response.json({ events, total: events.length });
+});
+
 if (existsSync(publicDirectory)) {
   app.use(express.static(publicDirectory, { maxAge: '1h', index: false }));
   app.get(/.*/, (_request, response) => response.sendFile(resolve(publicDirectory, 'index.html')));
@@ -69,7 +88,10 @@ webSocketServer.on('connection', (socket) => {
   socket.on('error', () => sockets.delete(socket));
 });
 
-simulation.subscribe((event) => broadcast({ type: 'event', data: event }));
+simulation.subscribe((event) => {
+  appendEvent(event);
+  broadcast({ type: 'event', data: event });
+});
 
 const interval = setInterval(() => {
   broadcast({ type: 'telemetry', data: simulation.tick() });

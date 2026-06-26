@@ -43,7 +43,7 @@
 - `src/app/app.ts`：新增 `activeTab = signal<'operator'|'robot-data'|'history'>('operator')`
 - `src/app/app.html`：Header 下方添加 tab 导航栏，条件渲染三个视图
 
-### ⬜ 5. History 标签页（日志历史 + 过滤 + 分页）
+### ✅ 5. History 标签页（日志历史 + 过滤 + 分页）
 **预计工作量：** 3–4 小时
 
 新增第三个 Tab，展示历史日志，支持多维过滤和分页。

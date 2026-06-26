@@ -1,6 +1,6 @@
 # Dual-Arm Assembly Cell Digital Twin
 
-[![CI](https://github.com/kaiqiwang4493/Robot_RealTime_Mointor/actions/workflows/ci.yml/badge.svg)](https://github.com/kaiqiwang4493/Robot_RealTime_Mointor/actions/workflows/ci.yml)
+[![CI](https://github.com/kaiqiwang4493/Robot_RealTime_Monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/kaiqiwang4493/Robot_RealTime_Monitor/actions/workflows/ci.yml)
 ![Angular](https://img.shields.io/badge/Angular-22-DD0031)
 ![Three.js](https://img.shields.io/badge/Three.js-WebGL-000000)
 ![WebSocket](https://img.shields.io/badge/Telemetry-WebSocket-32e6bd)
@@ -20,16 +20,28 @@ The application does **not** control physical hardware. It is a portfolio projec
 
 ## Screenshots
 
+### Operator View
 ![Dual-arm operator station](docs/operator-station.png)
+
+### Robot Data Tab
+![Robot hardware diagnostics](docs/robot-data.png)
+
+### History Tab
+![Event history with filtering](docs/history.png)
 
 ## Features
 
+- **Three-tab interface**: Operator View, Robot Data, and History
 - Live 3D view of two articulated robot arms, a conveyor, supply area, workpieces, assembly station, safety zone, and completed area
 - Deterministic dual-arm assembly workflow with server-authoritative state
 - Robot joint angles, gripper state, conveyor speed, workpiece identity, cycle time, throughput, and render FPS
+- **WebSocket latency metric** via ping/pong RTT, color-coded at 150 ms and 300 ms thresholds
+- **Step timer and progress bar** showing elapsed time vs. expected duration for the active process step
+- **Robot Data tab**: real-time hardware metrics (temperature, motor current, bus voltage, hydraulic pressure) with threshold progress bars; maintenance data (service hours, lubricant level) via REST polling
+- **History tab**: server-buffered event log (up to 1000 events) with four-axis filtering (source, severity, time range) and 20-row pagination with page-jump
 - Smooth interpolation between 10 Hz telemetry frames
 - Start, pause, reset, warning injection, error injection, and camera controls
-- Non-blocking alignment warning
+- Non-blocking alignment warning with dismissible banner
 - Cell-wide safe stop after a verification fault
 - Timestamped operational event stream
 - Automatic WebSocket reconnection and stale-telemetry overlay
@@ -52,17 +64,17 @@ After placement, the top component stores an `attachedTo` reference to the base 
 
 ### Warning
 
-`ALIGNMENT_TOLERANCE` simulates Arm A approaching its component placement tolerance. The assembly station and Arm A receive an amber visual treatment, an event is added to the stream, and production continues.
+`ALIGNMENT_TOLERANCE` simulates Arm A approaching its component placement tolerance. The assembly station and Arm A receive an amber visual treatment, a dismissible banner appears at the top of the interface, an event is added to the stream, and production continues uninterrupted.
 
 ### Error
 
-`VERIFICATION_FAILED` simulates a failed component placement check. The backend preserves the current workpiece positions, stops both robots and the conveyor, marks every robot as faulted, and requires an operator reset before another cycle can begin.
+`VERIFICATION_FAILED` simulates a failed component placement check. The backend preserves the current workpiece positions, stops both robots and the conveyor, marks every robot as faulted, and shows a dismissible error banner. An operator must issue a reset (via the cell control panel) before another cycle can begin.
 
 ## System Architecture
 
 ```text
 Browser
-├── Angular operator interface
+├── Angular operator interface (3 tabs)
 ├── Angular Signals view state
 ├── RxJS / native WebSocket transport
 └── Three.js digital twin
@@ -72,6 +84,8 @@ Browser
 Node.js web service
 ├── Angular static file host
 ├── WebSocket endpoint: /telemetry
+├── REST endpoints: /api/events, /api/robots/:id/maintenance
+├── In-memory event log (up to 1000 events)
 ├── Assembly state machine
 ├── Robot trajectory generator
 ├── Workpiece attachment model
@@ -82,8 +96,10 @@ Production uses one origin for both HTTP and WebSocket traffic. This removes COR
 
 ## Frontend Architecture
 
-- `TelemetryService` owns the connection lifecycle, validates sequence order, ignores malformed messages, reconnects after disconnects, and exposes Angular Signals.
+- `TelemetryService` owns the connection lifecycle, validates sequence order, ignores malformed messages, reconnects after disconnects, measures round-trip latency via ping/pong, and exposes Angular Signals.
 - `App` composes operator controls, telemetry panels, process state, and the event stream with `OnPush` change detection.
+- `RobotData` (standalone component) displays per-arm hardware diagnostics via WebSocket and polls the maintenance REST API every 10 seconds.
+- `History` (standalone component) merges the server event buffer with the live WebSocket stream, deduplicates by event id, and provides client-side four-axis filtering with paginated display.
 - `WorkcellScene` owns all Three.js resources. Its animation loop runs outside Angular change detection and disposes geometries, materials, controls, and observers when destroyed.
 - The scene interpolates current transforms toward the latest server frame instead of binding 3D objects directly to network updates.
 
@@ -105,9 +121,11 @@ The server:
 - owns production state and metrics
 - attaches the top component to the base after placement
 - broadcasts discrete operational events separately from telemetry
+- buffers up to 1000 events in memory for the History REST API
 - freezes state when paused or faulted
 - sends a full snapshot to every newly connected or reconnected browser
 - accepts only known operator commands
+- responds to ping frames with pong for client-side latency measurement
 
 ## WebSocket Message Contract
 
@@ -116,7 +134,8 @@ Telemetry messages use this envelope:
 ```ts
 type ServerMessage =
   | { type: 'snapshot' | 'telemetry'; data: TelemetryFrame }
-  | { type: 'event'; data: CellEvent };
+  | { type: 'event'; data: CellEvent }
+  | { type: 'pong'; sentAt: number };
 ```
 
 Client commands are:
@@ -124,6 +143,7 @@ Client commands are:
 ```ts
 type ClientCommand =
   | { type: 'start' | 'pause' | 'reset' }
+  | { type: 'ping'; sentAt: number }
   | {
       type: 'inject-warning' | 'inject-error';
       target: 'arm-a' | 'arm-b' | 'conveyor';
@@ -131,6 +151,14 @@ type ClientCommand =
 ```
 
 The complete shared contracts are in `src/app/models.ts`.
+
+## REST API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Service health and connected client count |
+| GET | `/api/robots/:id/maintenance` | Maintenance stats for `arm-a` or `arm-b` |
+| GET | `/api/events` | Filtered event log — query params: `robot`, `type`, `from` (ms), `to` (ms) |
 
 ## Technology Stack
 
@@ -187,7 +215,7 @@ The server tests cover state transitions, non-blocking warnings, safe-stop error
 ### Render Blueprint
 
 1. Push this repository to GitHub.
-2. The CI badge already points to `kaiqiwang4493/Robot_RealTime_Mointor`.
+2. The CI badge already points to `kaiqiwang4493/Robot_RealTime_Monitor`.
 3. In Render, select **New → Blueprint**.
 4. Connect the repository and select `render.yaml`.
 5. Wait for the Angular production build and Node service deployment.
@@ -225,7 +253,8 @@ Add a custom domain in the Render service settings, update DNS with your provide
 - Add telemetry recording, replay, and cycle comparison
 - Add collision envelopes and near-miss visualization
 - Add configurable assembly recipes and robot types
-- Add time-series charts and production OEE metrics
+- Add TCP end-effector position via forward kinematics
+- Add cycle-time trend chart and production OEE metrics
 - Move scene interpolation into a dedicated worker for larger workcells
 
 ## Safety Notice
